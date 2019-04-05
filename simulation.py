@@ -10,6 +10,7 @@ from pygame.locals import *
 from math import *
 import time
 import numpy as np
+from PID import PID
 import matplotlib.pyplot as plt
 from scipy.interpolate import BSpline, make_interp_spline
 
@@ -98,10 +99,11 @@ class Boat:
             self.ypos = 800
     
     def control(self):
-        p_control.SetPoint = self.HeadingSuggestion
-        p_control.update(self.heading)
-        self.output = p_control.output #pid output value
-
+        
+        pid.SetPoint = self.HeadingSuggestion
+        pid.update(self.heading)
+        self.output = pid.output #pid output value
+        
     def trim(self,model):
         self.MainSuggestion = opt_sail_angle(model.relwind) / 6
         self.JibSuggestion = opt_sail_angle(model.relwind) / 6
@@ -218,14 +220,16 @@ class PyGameWindowView:
         myfont = pygame.font.SysFont("monospace", 12, bold = False)
         text = myfont.render("Relative Wind: "+str(round(rad2deg(self.model.relwind))), 1, (0,0,0))
         text_2 = myfont.render("Boat angularVelocity: "+str(round(rad2deg(self.model.boat1.angularVelocity))), 1, (0,0,0))
-        #text_3 = myfont.render("Boat debug: "+str(self.model.boat1.debug_list), 1, (0,0,0))
+        text_3 = myfont.render(
+            "P: "+str(round(pid.PTerm, 4))+"   I: "+str(round(pid.ITerm, 4))+"   D: "+str(round(pid.DTerm, 4))+"   Delta Time: "+str(round(pid.delta_time, 4))+"     Delta Error: "+str(round(pid.delta_error, 4)), 1, (0,0,0)
+            )
         text_4 = myfont.render("Desired Heading: "+str(round(rad2deg(self.model.boat1.HeadingSuggestion)))+"     Boat Heading: "+str(round(rad2deg(self.model.boat1.heading), 3)), 1, (0,0,0))
-        text_5 = myfont.render("Setpoint: "+str(round(rad2deg(p_control.SetPoint)))+"     Output: "+str(round(p_control.output, 3))+"       Error: "+str(rad2deg(p_control.error)), 1, (0,0,0))
+        text_5 = myfont.render("Setpoint: "+str(round(rad2deg(pid.SetPoint)))+"     Output: "+str(round(pid.output, 3))+"       Error: "+str(rad2deg(pid.error)), 1, (0,0,0))
         self.screen.blit(text, (100,20))
         self.screen.blit(text_2, (100, 40))
-        #self.screen.blit(text_3, (100, 60))
         self.screen.blit(text_4, (100, 60))
-        self.screen.blit(text_5, (100,80))
+        self.screen.blit(text_3, (100, 80))
+        self.screen.blit(text_5, (100,100))
 class PyGameController:
     """handles user inputs and communicates with model"""
     def __init__(self,model,view): 
@@ -260,55 +264,6 @@ class PyGameController:
                 self.model.wind.windheading += pi/16.0                
             if event.key == pygame.K_d:
                 self.model.wind.windheading += -pi/16.0
-
-class p_control:
-    def __init__(self, P = 0.1):
-        self.Kp = P
-
-        self.sample_time = 0.00
-        self.current_time = time.time()
-        self.last_time = self.current_time
-    
-    def clear(self):
-        """Clears PID computations and coefficients"""
-        self.SetPoint = 0.0
-        self.PTerm = 0.0
-        self.output = 0.0
-    
-    def update(self, feedback):
-        self.error = feedback - self.SetPoint
-        self.current_time = time.time()
-        delta_time = self.current_time - self.last_time
-    
-        if (delta_time >= self.sample_time):
-            
-            if self.error < -pi:
-                self.error += (2.0*pi)
-            
-            if self.error > pi:
-                self.error -= (2.0*pi)
-
-            '''
-            if self.error < 0:
-                if self.error > -pi:
-                    self.error = self.error * -1
-                if self.error < -pi:
-                    self.error += (2.0*pi)
-                    self.error = self.error * -1
-            if self.error > 0:
-                if self.error < pi:
-                    self.error = self.error * -1
-                if self.error > pi:
-                    self.error -= (2.0*pi)
-                    self.error = self.error * -1
-            '''
-
-            self.PTerm = self.Kp * self.error
-            self.output = self.PTerm
-    
-    def setSampleTime(self, sample_time):
-        self.sample_time = sample_time
-
 
 
 def Vtmax(theta,k):
@@ -352,12 +307,15 @@ if __name__ == '__main__':
     view = PyGameWindowView(model,screen)
     controller = PyGameController(model,view)
     
-    P = 0.5
-    p_control = p_control(P)
-    p_control.clear()
-    p_control.setSampleTime(0.01)
     
-
+    P = 0.5
+    I = 0.1
+    D = 0.1
+    pid = PID(P, I, D)
+    pid.clear()
+    pid.setSampleTime(0.011)
+    pid.setWindup(60)
+    
     running = True
     while running:
         for event in pygame.event.get():
