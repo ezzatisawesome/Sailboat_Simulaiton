@@ -127,7 +127,7 @@ class Boat:
         self.forward_speed = cos(direction-self.heading)*speed #as it accelerates, log aspect diminishes
         
         #rudder torque aspect
-        Tr = -self.kw*log(abs(self.forward_speed)+1)*self.RudderPos #all of these ratios are made up 
+        Tr = -self.kw*log(abs(self.forward_speed)+1)*self.RudderPos * 2 #all of these ratios are made up 
         
         #sail torque aspect
         Ts = self.q*self.strength_Jib*sin(self.jib_angle-model.wind.windheading)*sqrt(abs(model.wind.windspeed))
@@ -276,17 +276,32 @@ class p_control:
         self.output = 0.0
     
     def update(self, feedback):
-        self.error = self.SetPoint - feedback
+        self.error = feedback - self.SetPoint
         self.current_time = time.time()
         delta_time = self.current_time - self.last_time
-        
+    
         if (delta_time >= self.sample_time):
+            
             if self.error < -pi:
                 self.error += (2.0*pi)
-
+            
             if self.error > pi:
                 self.error -= (2.0*pi)
-                self.error = self.error * -1
+
+            '''
+            if self.error < 0:
+                if self.error > -pi:
+                    self.error = self.error * -1
+                if self.error < -pi:
+                    self.error += (2.0*pi)
+                    self.error = self.error * -1
+            if self.error > 0:
+                if self.error < pi:
+                    self.error = self.error * -1
+                if self.error > pi:
+                    self.error -= (2.0*pi)
+                    self.error = self.error * -1
+            '''
 
             self.PTerm = self.Kp * self.error
             self.output = self.PTerm
