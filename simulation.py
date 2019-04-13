@@ -129,7 +129,7 @@ class Boat:
         self.forward_speed = cos(direction-self.heading)*speed #as it accelerates, log aspect diminishes
         
         #rudder torque aspect
-        Tr = -self.kw*log(abs(self.forward_speed)+1)*self.RudderPos * 2 #all of these ratios are made up 
+        Tr = -self.kw*log(abs(self.forward_speed)+1)*self.RudderPos * 4 #all of these ratios are made up 
         
         #sail torque aspect
         Ts = self.q*self.strength_Jib*sin(self.jib_angle-model.wind.windheading)*sqrt(abs(model.wind.windspeed))
@@ -308,9 +308,9 @@ if __name__ == '__main__':
     controller = PyGameController(model,view)
     
     
-    P = 0.5
+    P = 1.0
     I = 0.1
-    D = 0.1
+    D = 0.3
     pid = PID(P, I, D)
     pid.clear()
     pid.setSampleTime(0.011)
